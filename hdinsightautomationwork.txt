@@ -1,0 +1,53 @@
+<# 
+	This PowerShell script was automatically converted to PowerShell Workflow so it can be run as a runbook.
+	Specific changes that have been made are marked with a comment starting with “Converter:”
+#>
+# Config Setting related to HBase 502 Bad gateway error 
+#If you don't have a publish settings file, uncomment the get settings file
+#Execute this script from the PowerShell ISE
+
+workflow hdinsight {
+	#The name of the Automation Credential Asset this runbook will use to authenticate to Azure.
+    $VerbosePreference = “Continue” 
+    $CredentialAssetName = 'azureautomation01'
+    
+    #Get the credential with the above name from the Automation Asset store
+    $Cred = Get-AutomationPSCredential -Name $CredentialAssetName
+    
+    if(!$Cred) {
+        Throw "Could not find an Automation Credential Asset named '${CredentialAssetName}'. Make sure you have created one in this Automation Account."
+    }
+
+    #Connect to your Azure Account
+    $Account = Add-AzureAccount -Credential $Cred
+    
+    if(!$Account) {
+        Throw "Could not authenticate to Azure using the credential asset '${CredentialAssetName}'. Make sure the user name and password are correct."
+    }
+
+    $subscription = 'VisualStudioUltimatewithMSDN'
+    $subscriptionId= '8a2fd796-c601-4dd4-8762-7d2dac01f45d'
+    Select-AzureSubscription -SubscriptionId $subscriptionId
+    $secpasswd = ConvertTo-SecureString "David!2345" -AsPlainText -Force
+    $HdiClusterCredentialsText = New-Object System.Management.Automation.PSCredential ("drcrook", $secpasswd)
+    
+	# Converter: Wrapping initial script in an InlineScript activity, and passing any parameters for use within the InlineScript
+	# Converter: If you want this InlineScript to execute on another host rather than the Automation worker, simply add some combination of -PSComputerName, -PSCredential, -PSConnectionURI, or other workflow common parameters (http://technet.microsoft.com/en-us/library/jj129719.aspx) as parameters of the InlineScript
+	inlineScript {
+        $CoreConfigValues = @{"fs.azure.io.copyblob.retry.max.retries"="30"}
+		$ClusterNodeCount = 1
+		$DefaultStorageAccount = "projectviccini"
+		$PrimaryStorageKey = "P3FWcryPlJ+GuRHPxOXzmPQLBzcQ8LIqqw60DDrsuxzqw8dYC0b9ehB/DN3k+AIE7YFQynAUf7L9o2RDdDM7IQ=="
+		$DefaultStorageContainer = "viccinicon"
+		$ClusterDnsName = "viccinicluster11"
+		$ClusterVersion = "3.2"
+        $HdiClusterCredentials = $using:HdiClusterCredentialsText
+		$DataCenterLocation = "East US"
+                        
+        write-output "Creating cluster"
+        
+		$Config = New-AzureHDInsightClusterConfig -ClusterSizeInNodes $ClusterNodeCount -ClusterType HBase | Set-AzureHDInsightDefaultStorage -StorageAccountName $DefaultStorageAccount -StorageAccountKey $PrimaryStorageKey -StorageContainerName $DefaultStorageContainer |Add-AzureHDInsightConfigValues -Core $CoreConfigValues | New-AzureHDInsightCluster -Name $ClusterDnsName -Credential $HdiClusterCredentials -Version $ClusterVersion -Location $DataCenterLocation
+        write-output "It's all good'"
+    
+	}
+}
